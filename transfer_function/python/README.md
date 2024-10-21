@@ -17,7 +17,7 @@
             print(p_motor)
       d) Output on screen
 
-      ![image](https://github.com/user-attachments/assets/0b89a314-c30a-4201-ba3b-9283612d54c7)
+      ![screenshot](image/dc_motor_tf1.png)
 
 
 **2. Program :**
