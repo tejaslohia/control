@@ -17,7 +17,7 @@
             print(p_motor)
       d) Output on screen
 
-      ![screenshot](image/dc_motor_tf1.png)
+      ![image](/transfer_function/python/image/dc_motor_tf1.png)
 
 
 **2. Program :**
