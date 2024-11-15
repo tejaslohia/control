@@ -2,23 +2,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Motor parameters (replace with actual values)
-Rl = 0.75             # Stator resistance (ohms)
+# Motor parameters (Kollmorgan EKM51_K Motor)
+Rl = 0.75               # Stator resistance (ohms)
 Ls=34/1000              # L-L inductance
-Jorg=3.4                # Kg-cm^2  
-Borg=0.033              # N-m/Krpm
-p = 5                # Number of pole pairs
-Kt=0.52                # N-m/Arms
+Jm=3.4                # Kg-cm^2  
+Bm=0.033              # N-m/Krpm
+p = 5                   # Number of pole pairs
+Kt=0.52                 # N-m/Arms
 
 Rs=Rl/2                 # Resistance Per Phase
 Ld = Ls/2               # d-axis inductance (H)
 Lq = Ls/2               # q-axis inductance (H)
-J = Jorg*0.0001         #0.00034  # Rotor inertia (kg.m^2)
-B=Borg*(60/(1000*2*np.pi)) #(N-m/rad/s)
-#B = 0.000315          # Damping coefficient (N.m.s)
+J = Jm*0.0001         #0.00034  # Rotor inertia (kg.m^2)
+B=Bm*(60/(1000*2*np.pi)) #(N-m/rad/s)
 lambda_f = Kt*(2/(3*p))    # Flux linkage (Wb)
-#lambda_f = 0.069333    # Flux linkage (Wb)
-
+# Load Torque 
 Tl=5
 
 
@@ -102,7 +100,7 @@ dt = 50e-6 # Time step
 t_eval=np.arange(0, t_span, dt)
 time_len=len(t_eval)
 
-# Initial conditions [id,iq,omega,theta]
+# Initial motor state conditions [id,iq,omega,theta]
 state0 = [0, 0, 0, 0, 0, 0]  
 
 # np arrays for storing result
@@ -112,40 +110,40 @@ omega=np.zeros(time_len)
 theta=np.zeros(time_len)
 diq_dt=np.zeros(time_len)
 did_dt=np.zeros(time_len)
-
 iq_res=np.zeros(time_len)
 id_res=np.zeros(time_len)
-vq_res=np.zeros(time_len)
-vd_res=np.zeros(time_len)
 
-#Current Controller
+#Current/Velocity/Positon Controller Gain Values
+# Iq
 kp_iq = 60# Proportional gain
 ki_iq = 30000 # Integral gain
+# Id
 kp_id = 60 # Proportional gain
 ki_id = 30000  # Integral gain
-
-# Velocity Controller
-Wrpm=2500
-Wref=Wrpm * (2*np.pi)/60 # speed in rad/sec
+# Omega
 kp_w=0.022
 ki_w=2
+# Positon
+kp_pos=2
+ki_pos=2
 
 # Position Controller
 pos_ref=50
-kp_pos=2
-ki_pos=2
+
 # Init all PI controller
 PIController_pos=PIController(kp=kp_pos, ki=ki_pos, setpoint=pos_ref)
 
+# Initial Velocity Reference and Omega Controller
 Wref=PIController_pos.update(0,dt*100)
 PIController_w=PIController(kp=kp_w, ki=ki_w, setpoint=Wref) 
 
+# Id Controller with Id_ref = 0
 Id_ref=0
-PIController_iq=PIController(kp=kp_iq, ki=ki_iq, setpoint=0) 
-
 PIController_id=PIController(kp=kp_id, ki=ki_id, setpoint=Id_ref) 
-iq_setpoint=PIController_w.update(0,dt*100)
-PIController_iq.change_setpoint(iq_setpoint)
+
+# Iq controller with initial value from PI_W controller
+Iq_ref=PIController_w.update(0,dt*100)
+PIController_iq=PIController(kp=kp_iq, ki=ki_iq, setpoint=Iq_ref) 
 
 # Input voltages
 ##Vd = 0.1
@@ -171,28 +169,27 @@ for t in t_eval[:(time_len-1)]:
 
     Vq = PIController_iq.update(iq[index], dt)
     Vd = PIController_id.update(id[index], dt)
-
-    vq_res[index]=Vq
-    vd_res[index]=Vd
-        
+    
     input=[Vd,Vq]
     state0=pmsm_dynamics(dt=dt,motor_state=state0,motor_input=input,load_torque=Tl)
     index=index+1
     did_dt[index], id[index], diq_dt[index],iq[index], omega[index], theta[index] = state0
     
+# Calculate Ia,Ib,Ic from id,iq for ploting
 Ia,Ib,Ic=dq_to_abc(id,iq,theta) 
 
 # Plot PMSM speed/Currents vs Time
 plt.figure(1)
 plt.tight_layout()
 
-#omega[-1]=3000*2*np.pi/60
+# Plot Motor Speed(rpm) Vs Time(Sec)
 plt.subplot(4,1,1)
 plt.plot(t_eval, omega*60/(2*np.pi), label='omega in rpm', color="g")
 plt.title("PMSM Motor Simulation considering Lq/Ld,Iq,Id")
 plt.ylabel("PMSM Motor Speed (RPM)")
 plt.grid()
 
+# Plot Motor Id,Iq Vs Time(Sec)
 plt.subplot(4,1,2)
 plt.plot(t_eval, id, label='Id')
 plt.plot(t_eval, iq, label='Iq')
@@ -200,16 +197,15 @@ plt.ylabel("Id,Iq,")
 plt.legend()
 plt.grid()
 
+# Plot Motor theta (rotor positon in rad) Vs Time(Sec)
 plt.subplot(4,1,3)
 plt.plot(t_eval, theta, label='theta')
-#plt.plot(t_eval,vd_res, label='vd_res')
-#plt.plot(t_eval,vq_res, label='vq_res')
-
 plt.xlabel("Time (Second)")
 plt.ylabel("Theta")
 plt.grid()
 plt.legend()
 
+# Plot Motor rotor curret ia,ib,ic Vs Time(Sec)
 plt.subplot(4,1,4)
 plt.plot(t_eval, Ia, label='Ia')
 plt.plot(t_eval, Ib, label='Ib')
@@ -224,5 +220,3 @@ plt.legend()
 
 plt.show()
 
-
-print(iq[0])
